@@ -1,0 +1,42 @@
+2026-05-05 01:52:25,391 [INFO] run: === SERVE MODE | port=8000 ===
+INFO:     Started server process [100164]
+INFO:     Waiting for application startup.
+2026-05-05 01:52:37,929 [INFO] api.main: Starting Ophthalmic Digital Twin API on device=cpu
+2026-05-05 01:52:47,277 [INFO] api.main: Loaded model: TemporalTransformer from epoch 9
+2026-05-05 01:52:47,324 [INFO] api.main: ExplainabilityEngine initialized
+2026-05-05 01:53:02,757 [INFO] api.main: MARL agents initialized (n_treatments=5)
+2026-05-05 01:53:03,129 [INFO] api.main: DigitalTwinEngine factory ready
+2026-05-05 01:53:03,129 [INFO] api.main: API startup complete.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:62274 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62276 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53280 - "POST /api/v1/predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59158 - "GET /api/v1/twin-state/P100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59160 - "GET /api/v1/twin-state/P100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59163 - "POST /api/v1/simulate HTTP/1.1" 200 OK
+2026-05-05 01:54:09,498 [INFO] core.nash_solver: Nash solver starting: patient=P100 n_iters=20
+2026-05-05 01:54:48,447 [INFO] core.nash_solver: Nash converged at step 2 (KL=0.00000)
+INFO:     127.0.0.1:59165 - "POST /api/v1/recommend-treatment HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56471 - "POST /api/v1/predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58642 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53979 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53980 - "GET /api/v1/feature-names HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56430 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56431 - "GET /api/v1/feature-names HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58202 - "POST /api/v1/predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56268 - "POST /api/v1/simulate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65257 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50341 - "GET /api/v1/feature-names HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51636 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51637 - "GET /api/v1/feature-names HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54806 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54808 - "GET /api/v1/feature-names HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57404 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57405 - "GET /api/v1/feature-names HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61068 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61069 - "GET /api/v1/feature-names HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59689 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59691 - "GET /api/v1/feature-names HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59693 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59695 - "GET /api/v1/health HTTP/1.1" 200 OK

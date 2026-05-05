@@ -1,0 +1,12 @@
+torch>=2.1.0
+torchvision
+fastapi>=0.104.0
+uvicorn[standard]
+pydantic>=2.0
+pandas
+numpy
+scikit-learn
+shap
+scipy
+python-multipart
+aiofiles

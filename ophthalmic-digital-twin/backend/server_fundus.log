@@ -1,0 +1,26 @@
+2026-05-05 02:18:26,643 [INFO] run: === SERVE MODE | port=8000 ===
+INFO:     Started server process [112432]
+INFO:     Waiting for application startup.
+2026-05-05 02:18:36,774 [INFO] api.main: Starting Ophthalmic Digital Twin API on device=cpu
+2026-05-05 02:18:47,000 [INFO] api.main: Loaded model: TemporalTransformer from epoch 9
+2026-05-05 02:18:47,004 [INFO] api.main: ExplainabilityEngine initialized
+2026-05-05 02:18:56,009 [INFO] api.main: FundusEncoder initialized (ResNet-18, 5 classes)
+2026-05-05 02:18:56,356 [INFO] api.main: MARL agents initialized (n_treatments=5)
+2026-05-05 02:18:56,367 [INFO] api.main: DigitalTwinEngine factory ready
+2026-05-05 02:18:56,367 [INFO] api.main: API startup complete.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:53704 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53706 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60375 - "POST /api/v1/analyze-fundus HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55275 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55276 - "GET /api/v1/feature-names HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62760 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50162 - "GET /api/v1/feature-names HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53843 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53844 - "GET /api/v1/feature-names HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54658 - "POST /api/v1/analyze-fundus HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63590 - "POST /api/v1/analyze-fundus HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54543 - "POST /api/v1/analyze-fundus HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62198 - "POST /api/v1/analyze-fundus HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49951 - "POST /api/v1/analyze-fundus HTTP/1.1" 200 OK

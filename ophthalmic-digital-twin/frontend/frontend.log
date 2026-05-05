@@ -1,0 +1,64 @@
+
+> ophthalmic-digital-twin@1.0.0 dev
+> vite --port 5173
+
+Port 5173 is in use, trying another one...
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m2411[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5174[22m/[39m
+[2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[2m1:55:33 AM[22m [33m[1m[vite][22m[39m [33mwarning: [33mDuplicate key "border" in object literal[33m
+179|      variant === 'success' ? '#00ff88' :
+180|      '#ff6b35',
+181|      border: `1px solid ${variant === 'primary' ? 'rgba(0,200,255,0.3)' :
+   |      ^
+182|      variant === 'success' ? 'rgba(0,255,136,0.3)' :
+183|      'rgba(255,107,53,0.3)'}`,
+[39m
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/Jai Sinha/Desktop/idpel/ophthalmic-digital-twin/frontend/src/App.jsx[39m
+[2m2:13:56 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
+[2m2:13:57 AM[22m [33m[1m[vite][22m[39m [33mwarning: [33mDuplicate key "border" in object literal[33m
+180|      variant === 'success' ? '#00ff88' :
+181|      '#ff6b35',
+182|      border: `1px solid ${variant === 'primary' ? 'rgba(0,200,255,0.3)' :
+   |      ^
+183|      variant === 'success' ? 'rgba(0,255,136,0.3)' :
+184|      'rgba(255,107,53,0.3)'}`,
+[39m
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/Jai Sinha/Desktop/idpel/ophthalmic-digital-twin/frontend/src/App.jsx[39m
+[2m2:14:00 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
+[2m2:14:00 AM[22m [33m[1m[vite][22m[39m [33mwarning: [33mDuplicate key "border" in object literal[33m
+180|      variant === 'success' ? '#00ff88' :
+181|      '#ff6b35',
+182|      border: `1px solid ${variant === 'primary' ? 'rgba(0,200,255,0.3)' :
+   |      ^
+183|      variant === 'success' ? 'rgba(0,255,136,0.3)' :
+184|      'rgba(255,107,53,0.3)'}`,
+[39m
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/Jai Sinha/Desktop/idpel/ophthalmic-digital-twin/frontend/src/App.jsx[39m
+[2m2:14:08 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
+[2m2:14:09 AM[22m [33m[1m[vite][22m[39m [33mwarning: [33mDuplicate key "border" in object literal[33m
+180|      variant === 'success' ? '#00ff88' :
+181|      '#ff6b35',
+182|      border: `1px solid ${variant === 'primary' ? 'rgba(0,200,255,0.3)' :
+   |      ^
+183|      variant === 'success' ? 'rgba(0,255,136,0.3)' :
+184|      'rgba(255,107,53,0.3)'}`,
+[39m
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/Jai Sinha/Desktop/idpel/ophthalmic-digital-twin/frontend/src/App.jsx[39m
+[2m2:14:31 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.jsx[22m
+[2m2:20:08 AM[22m [33m[1m[vite][22m[39m [33mwarning: [33mDuplicate key "border" in object literal[33m
+180|      variant === 'success' ? '#00ff88' :
+181|      '#ff6b35',
+182|      border: `1px solid ${variant === 'primary' ? 'rgba(0,200,255,0.3)' :
+   |      ^
+183|      variant === 'success' ? 'rgba(0,255,136,0.3)' :
+184|      'rgba(255,107,53,0.3)'}`,
+[39m
+  Plugin: [35mvite:esbuild[39m
+  File: [36mC:/Users/Jai Sinha/Desktop/idpel/ophthalmic-digital-twin/frontend/src/App.jsx[39m
