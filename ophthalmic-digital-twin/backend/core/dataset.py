@@ -14,7 +14,6 @@ import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
-from sklearn.cluster import KMeans
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 
@@ -227,98 +226,6 @@ class FeaturePreprocessor:
 
 
 # ─────────────────────────────────────────────────────────
-# Pseudo-sequence construction
-# ─────────────────────────────────────────────────────────
-
-def _build_pseudo_sequences(
-    feature_matrix: np.ndarray,
-    miss_matrix: np.ndarray,
-    patient_ids: np.ndarray,
-    T: int = 6,
-    n_clusters: int = 6,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    KMeans cluster_label as synthetic time proxy.
-    Returns: sequences [N_patients, T, F], missingness [N_patients, T, F], patient_ids [N_patients]
-    """
-    log.info("Building pseudo-sequences with KMeans(n_clusters=%d), T=%d", n_clusters, T)
-    km = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
-    cluster_labels = km.fit_predict(feature_matrix)
-
-    df_temp = pd.DataFrame({
-        "patient_id": patient_ids,
-        "cluster_label": cluster_labels,
-        "row_idx": np.arange(len(feature_matrix)),
-    })
-
-    unique_patients = df_temp["patient_id"].unique()
-    F = feature_matrix.shape[1]
-    seq_X = np.zeros((len(unique_patients), T, F), dtype=np.float32)
-    seq_M = np.zeros((len(unique_patients), T, F), dtype=np.float32)
-    out_pids = []
-
-    for pi, pid in enumerate(unique_patients):
-        rows = df_temp[df_temp["patient_id"] == pid].sort_values("cluster_label")
-        idxs = rows["row_idx"].values
-        n_visits = min(len(idxs), T)
-        seq_X[pi, :n_visits] = feature_matrix[idxs[:n_visits]]
-        seq_M[pi, :n_visits] = miss_matrix[idxs[:n_visits]]
-        # Mark padded (non-visit) timesteps as fully missing so the model learns
-        # to ignore them via the learned mask token rather than treating zeros as
-        # valid "mean-value" observations.
-        seq_M[pi, n_visits:] = 1.0
-        out_pids.append(pid)
-
-    return seq_X, seq_M, np.array(out_pids)
-
-
-def _build_temporal_sequences(
-    feature_matrix: np.ndarray,
-    miss_matrix: np.ndarray,
-    patient_ids: np.ndarray,
-    timestamps: np.ndarray,
-    T: int = 8,
-    stride: int = 4,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Sliding windows over ordered visits."""
-    log.info("Building temporal sequences T=%d, stride=%d", T, stride)
-    F = feature_matrix.shape[1]
-    windows_X, windows_M, window_pids = [], [], []
-
-    df_temp = pd.DataFrame({
-        "patient_id": patient_ids,
-        "timestamp": timestamps,
-        "row_idx": np.arange(len(feature_matrix)),
-    })
-
-    for pid, grp in df_temp.groupby("patient_id"):
-        grp = grp.sort_values("timestamp")
-        idxs = grp["row_idx"].values
-        n = len(idxs)
-        if n < T:
-            # pad
-            win_X = np.zeros((T, F), dtype=np.float32)
-            win_M = np.ones((T, F), dtype=np.float32)
-            win_X[:n] = feature_matrix[idxs]
-            win_M[:n] = miss_matrix[idxs]
-            windows_X.append(win_X)
-            windows_M.append(win_M)
-            window_pids.append(pid)
-        else:
-            for start in range(0, n - T + 1, stride):
-                sel = idxs[start:start + T]
-                windows_X.append(feature_matrix[sel])
-                windows_M.append(miss_matrix[sel])
-                window_pids.append(pid)
-
-    return (
-        np.stack(windows_X, 0),
-        np.stack(windows_M, 0),
-        np.array(window_pids),
-    )
-
-
-# ─────────────────────────────────────────────────────────
 # PyTorch Dataset
 # ─────────────────────────────────────────────────────────
 
@@ -418,36 +325,13 @@ def load_data(
     else:
         pids = np.arange(len(df))
 
-    # Sequence construction
+    # Cross-sectional design: each row is one patient encounter. We do NOT
+    # fabricate a temporal axis (the previous KMeans "pseudo-time" had no clinical
+    # meaning — glaucoma progression is longitudinal and cannot be recovered from a
+    # single cross-sectional row). The model is a per-row tabular classifier.
     has_sequences = False
     seq_len = 1
-
-    if ts_col and ts_col in df.columns:
-        has_sequences = True
-        seq_len = 8
-        timestamps = pd.to_numeric(
-            pd.to_datetime(df[ts_col], errors="coerce"), errors="coerce"
-        ).values
-        X_seq, M_seq, seq_pids = _build_temporal_sequences(
-            feature_matrix, miss_matrix, pids, timestamps, T=seq_len, stride=4
-        )
-        # Align labels: take last label in window
-        df_tmp = pd.DataFrame({"pid": pids, "target": y_encoded, "row_idx": np.arange(len(df))})
-        pid_to_target = {pid: grp["target"].iloc[-1]
-                         for pid, grp in df_tmp.groupby("pid")}
-        y_seq = np.array([pid_to_target.get(p, y_encoded[0]) for p in seq_pids])
-        X_final, M_final, y_final, pids_final = X_seq, M_seq, y_seq, seq_pids
-    else:
-        has_sequences = True
-        seq_len = 6
-        X_seq, M_seq, seq_pids = _build_pseudo_sequences(
-            feature_matrix, miss_matrix, pids, T=seq_len, n_clusters=6
-        )
-        df_tmp = pd.DataFrame({"pid": pids, "target": y_encoded, "row_idx": np.arange(len(df))})
-        pid_to_target = {pid: grp["target"].iloc[-1]
-                         for pid, grp in df_tmp.groupby("pid")}
-        y_seq = np.array([pid_to_target.get(p, y_encoded[0]) for p in seq_pids])
-        X_final, M_final, y_final, pids_final = X_seq, M_seq, y_seq, seq_pids
+    X_final, M_final, y_final, pids_final = feature_matrix, miss_matrix, y_encoded, pids
 
     # y dtype
     if task == "classification":
@@ -525,7 +409,14 @@ def load_data(
     meta_path = DATA_DIR / "feature_metadata.json"
     serializable_meta = {k: v for k, v in feature_metadata.items()
                          if k not in ("preprocessor",)}
+    serializable_meta["trained_csv"] = str(csv_path)
     with open(meta_path, "w") as f:
         json.dump(serializable_meta, f, indent=2)
+
+    # Persist the fitted preprocessor so the API uses the EXACT scalers/encoders
+    # fit on the training CSV (not a re-fit on a different file).
+    import pickle
+    with open(DATA_DIR / "preprocessor.pkl", "wb") as f:
+        pickle.dump(prep, f)
 
     return train_loader, val_loader, test_loader, feature_metadata

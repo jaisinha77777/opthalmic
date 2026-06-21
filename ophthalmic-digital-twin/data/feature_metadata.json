@@ -86,8 +86,8 @@
   "n_features": 23,
   "n_classes": 5,
   "task": "classification",
-  "has_sequences": true,
-  "seq_len": 6,
+  "has_sequences": false,
+  "seq_len": 1,
   "target_col": "disease_severity",
   "class_labels": [
     "Mild Glaucoma",
@@ -95,5 +95,6 @@
     "Normal",
     "Severe Glaucoma",
     "Suspect"
-  ]
+  ],
+  "trained_csv": "../data/synthetic_train.csv"
 }

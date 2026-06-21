@@ -1,0 +1,17 @@
+# Build artifacts and junk — keep the build context small.
+**/node_modules
+**/dist
+**/__pycache__
+**/*.pyc
+**/*.log
+.git
+.gitignore
+
+# Large raw image datasets / archives (not needed at runtime).
+data/fundus/
+*.zip
+
+# Notebooks, paper sources, tests — not needed in the image.
+notebooks/
+paper/
+test_fundus.png

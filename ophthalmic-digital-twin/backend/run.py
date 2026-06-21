@@ -73,12 +73,16 @@ def run_train(args: argparse.Namespace) -> None:
 
 
 def run_serve(args: argparse.Namespace) -> None:
+    import os
     import uvicorn
-    port = getattr(args, "port", 8000)
-    log.info("=== SERVE MODE | port=%d ===", port)
+    # Env wins over the CLI default so PaaS platforms (which inject $PORT) work
+    # without extra flags; an explicit --port still overrides via args default.
+    port = int(os.getenv("PORT", str(getattr(args, "port", 8000))))
+    host = os.getenv("HOST", "0.0.0.0")
+    log.info("=== SERVE MODE | host=%s port=%d ===", host, port)
     uvicorn.run(
         "api.main:app",
-        host="0.0.0.0",
+        host=host,
         port=port,
         reload=False,
         log_level="info",

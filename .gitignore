@@ -1,0 +1,34 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# ---- Node / frontend ----
+node_modules/
+ophthalmic-digital-twin/frontend/dist/
+.vite/
+
+# ---- Logs ----
+*.log
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# ---- Local Claude settings ----
+.claude/settings.local.json
+
+# ---- Large / regenerable data ----
+# Raw fundus image dumps and downloaded archives (regenerate via scripts/fetch_fundus_dataset.py)
+ophthalmic-digital-twin/data/fundus/
+*.zip
+
+# NOTE: trained model weights (backend/models/*.pt) and the preprocessor
+# (data/preprocessor.pkl) ARE intentionally tracked so the app runs after a
+# fresh clone. They are large (~150 MB) — consider git-lfs if the repo grows.

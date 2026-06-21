@@ -1,0 +1,20 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: glaucoma-clinical-support
+    ports:
+      - "8000:8000"
+    environment:
+      # Lock this down to your real frontend origin(s) in production, e.g.
+      # ALLOWED_ORIGINS: "https://glaucoma.example.com"
+      ALLOWED_ORIGINS: "*"
+      PORT: "8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/v1/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s

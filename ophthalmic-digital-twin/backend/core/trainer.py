@@ -73,8 +73,12 @@ def heteroscedastic_nll(
     if task == "classification":
         preds = logits.argmax(dim=-1)                          # [B]
         correct = (preds == targets).float()                   # [B]  1=right 0=wrong
-        # Encourage σ² → 0 when correct, σ² → 1 when wrong
-        loss = (sigma2 * correct + (1.0 - sigma2) * (1.0 - correct)).mean()
+        # Encourage σ² → 0 when correct, σ² → 1 when wrong. σ² MUST be bounded to
+        # [0,1] here: the Softplus head is unbounded above, and without this clamp the
+        # term (1 - σ²) is minimised by inflating σ² to ±∞ on wrong samples, which
+        # destabilises the whole model (train loss diverges, accuracy collapses).
+        sigma2_b = sigma2.clamp(0.0, 1.0)
+        loss = (sigma2_b * correct + (1.0 - sigma2_b) * (1.0 - correct)).mean()
         return loss
     else:
         mu = logits.squeeze(-1)
@@ -277,6 +281,10 @@ def train(
         history.update({"val_mae": [], "val_rmse": [], "val_r2": []})
 
     best_val_loss = float("inf")
+    # For classification we checkpoint on validation macro-F1 (robust to class
+    # imbalance) rather than val_loss, because val_loss is polluted by the
+    # heteroscedastic-NLL term and is not monotone with predictive quality.
+    best_score = -float("inf")
     patience_counter = 0
     best_epoch = 0
 
@@ -363,38 +371,36 @@ def train(
         history["epoch_time"].append(epoch_time)
         history["lr"].append(optimizer.param_groups[0]["lr"])
 
-        # Full eval metrics every 5 epochs
-        if epoch % 5 == 0 or epoch == 1:
-            if task == "classification":
-                metrics = _eval_classification(model, val_loader, device, n_classes)
-                history["val_accuracy"].append(metrics["accuracy"])
-                history["val_f1"].append(metrics["f1_macro"])
-                history["val_auc"].append(metrics["roc_auc"])
-                history["val_ece"].append(metrics["ece"])
-                log.info(
-                    "Epoch %3d/%d | train=%.4f val=%.4f | acc=%.3f f1=%.3f auc=%.3f ece=%.3f | %.1fs",
-                    epoch, n_epochs, avg_train_loss, avg_val_loss,
-                    metrics["accuracy"], metrics["f1_macro"], metrics["roc_auc"], metrics["ece"],
-                    epoch_time,
-                )
-            else:
-                metrics = _eval_regression(model, val_loader, device)
-                history["val_mae"].append(metrics["mae"])
-                history["val_rmse"].append(metrics["rmse"])
-                history["val_r2"].append(metrics["r2"])
-                log.info(
-                    "Epoch %3d/%d | train=%.4f val=%.4f | mae=%.4f rmse=%.4f r2=%.4f | %.1fs",
-                    epoch, n_epochs, avg_train_loss, avg_val_loss,
-                    metrics["mae"], metrics["rmse"], metrics["r2"], epoch_time,
-                )
-        else:
+        # Full eval metrics EVERY epoch so checkpointing/early-stopping use a real
+        # predictive metric rather than the NLL-polluted val_loss.
+        if task == "classification":
+            metrics = _eval_classification(model, val_loader, device, n_classes)
+            history["val_accuracy"].append(metrics["accuracy"])
+            history["val_f1"].append(metrics["f1_macro"])
+            history["val_auc"].append(metrics["roc_auc"])
+            history["val_ece"].append(metrics["ece"])
+            score = metrics["f1_macro"]   # checkpoint criterion
             log.info(
-                "Epoch %3d/%d | train=%.4f val=%.4f | %.1fs",
-                epoch, n_epochs, avg_train_loss, avg_val_loss, epoch_time,
+                "Epoch %3d/%d | train=%.4f val=%.4f | acc=%.3f f1=%.3f auc=%.3f ece=%.3f | %.1fs",
+                epoch, n_epochs, avg_train_loss, avg_val_loss,
+                metrics["accuracy"], metrics["f1_macro"], metrics["roc_auc"], metrics["ece"],
+                epoch_time,
+            )
+        else:
+            metrics = _eval_regression(model, val_loader, device)
+            history["val_mae"].append(metrics["mae"])
+            history["val_rmse"].append(metrics["rmse"])
+            history["val_r2"].append(metrics["r2"])
+            score = -avg_val_loss         # regression: lower loss is better
+            log.info(
+                "Epoch %3d/%d | train=%.4f val=%.4f | mae=%.4f rmse=%.4f r2=%.4f | %.1fs",
+                epoch, n_epochs, avg_train_loss, avg_val_loss,
+                metrics["mae"], metrics["rmse"], metrics["r2"], epoch_time,
             )
 
-        # Checkpoint best
-        if avg_val_loss < best_val_loss:
+        # Checkpoint on best score (macro-F1 for classification)
+        if score > best_score:
+            best_score = score
             best_val_loss = avg_val_loss
             best_epoch = epoch
             patience_counter = 0
@@ -403,10 +409,11 @@ def train(
                 "model_state_dict": model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
                 "val_loss": avg_val_loss,
+                "val_score": score,
                 "feature_metadata": {k: v for k, v in feature_metadata.items()
                                      if k != "preprocessor"},
             }, MODELS_DIR / "best_model.pt")
-            log.info("  ✓ Saved best model (epoch %d, val_loss=%.4f)", epoch, avg_val_loss)
+            log.info("  [saved] best model (epoch %d, score=%.4f)", epoch, score)
         else:
             patience_counter += 1
             if patience_counter >= patience:

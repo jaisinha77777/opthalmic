@@ -1,35 +1,35 @@
 # Data Report
 
 ## Shape
-1200 rows × 25 columns
+4000 rows × 25 columns
 
 ## Null Percentage per Column
 ```
-patient_id            0.0
-age                   0.0
-sex                   0.0
-bmi                   0.0
-iop_od                0.0
-iop_os                0.0
-cup_disc_ratio        0.0
-va_od                 0.0
-va_os                 0.0
-mean_deviation_od    10.0
-mean_deviation_os    10.0
-pattern_sd            8.0
-rnfl_superior         7.0
-rnfl_inferior         7.0
-rnfl_average          0.0
-hba1c                12.0
-systolic_bp           0.0
-diastolic_bp          0.0
-diabetes              0.0
-hypertension          0.0
-family_history        0.0
-treatment             0.0
-eye_color             0.0
-ethnicity             0.0
-disease_severity      0.0
+patient_id            0.00
+age                   0.00
+sex                   0.00
+bmi                   0.00
+iop_od                0.00
+iop_os                0.00
+cup_disc_ratio        0.00
+va_od                 0.00
+va_os                 0.00
+mean_deviation_od    10.02
+mean_deviation_os    10.10
+pattern_sd            8.43
+rnfl_superior         6.85
+rnfl_inferior         6.88
+rnfl_average          0.00
+hba1c                11.85
+systolic_bp           0.00
+diastolic_bp          0.00
+diabetes              0.00
+hypertension          0.00
+family_history        0.00
+treatment             0.00
+eye_color             0.00
+ethnicity             0.00
+disease_severity      0.00
 ```
 
 ## dtypes
@@ -74,10 +74,10 @@ disease_severity         str
 ## Class Distribution
 ```
 disease_severity
-Normal               529
-Suspect              403
-Mild Glaucoma        217
-Moderate Glaucoma     46
-Severe Glaucoma        5
+Suspect              1798
+Moderate Glaucoma     871
+Severe Glaucoma       525
+Normal                470
+Mild Glaucoma         336
 ```
-Imbalance ratio (max/min): 105.80
+Imbalance ratio (max/min): 5.35

@@ -1,209 +1,68 @@
 /**
- * ProgressionGraph — disease trajectory over simulated horizon.
- * Recharts ComposedChart with historical (solid cyan), future (dashed orange),
- * confidence band area, current-time reference line, and glass tooltip.
+ * ProgressionGraph — visual-field (Mean Deviation) projection over time.
+ * Plots treated vs untreated MD trajectories with an 80% confidence band on the
+ * treated curve. Lower (more negative) MD = worse field. Recharts, no animation theatrics.
  */
 
-import React, { useMemo } from 'react'
+import React from 'react'
 import {
-  ComposedChart,
-  Line,
-  Area,
-  ReferenceLine,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
+  ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
 
-// ── Custom glass tooltip ──────────────────────────────────
-
-function GlassTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null
-  return (
-    <div style={{
-      background: 'rgba(2,4,8,0.92)',
-      border: '1px solid rgba(0,200,255,0.25)',
-      borderRadius: '6px',
-      padding: '8px 12px',
-      backdropFilter: 'blur(12px)',
-    }}>
-      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', fontFamily: 'var(--font-data)' }}>
-        T = {label}
-      </div>
-      {payload.map((p) => (
-        <div key={p.name} style={{
-          fontSize: '11px',
-          fontFamily: 'var(--font-data)',
-          color: p.color ?? '#00c8ff',
-          marginBottom: '2px',
-        }}>
-          {p.name}: {typeof p.value === 'number' ? p.value.toFixed(3) : p.value}
-        </div>
-      ))}
-    </div>
-  )
+const card = {
+  background: 'var(--panel)',
+  border: '1px solid var(--border)',
+  borderRadius: '10px',
+  padding: '16px',
 }
 
-/**
- * @component Disease trajectory graph showing historical and simulated future predictions.
- * @param {Object|null} simulationData - SimulateResponse from /simulate endpoint
- * @param {Object|null} inferenceData  - PredictResponse (for current confidence as baseline)
- * @param {number} currentTimestep
- */
-export default function ProgressionGraph({ simulationData, inferenceData, currentTimestep }) {
-  const chartData = useMemo(() => {
-    if (!inferenceData && !simulationData) return []
-
-    const data = []
-    const basePred = typeof inferenceData?.prediction === 'number' ? inferenceData.prediction : 0
-
-    // Historical point (t=0 = current state)
-    data.push({
-      t: currentTimestep ?? 0,
-      historical: basePred,
-      confidence: inferenceData?.confidence ?? 0.5,
-    })
-
-    if (simulationData?.predictions) {
-      simulationData.predictions.forEach((pred, i) => {
-        const lower = simulationData.confidence_lower?.[i] ?? 0
-        const upper = simulationData.confidence_upper?.[i] ?? 1
-        data.push({
-          t: (currentTimestep ?? 0) + i + 1,
-          future: typeof pred === 'number' ? pred : 0,
-          band: [lower, upper],
-          bandLow: lower,
-          bandHigh: upper,
-          uncertainty: simulationData.uncertainties?.[i] ?? 0,
-        })
-      })
-    }
-
-    return data
-  }, [inferenceData, simulationData, currentTimestep])
-
-  if (chartData.length === 0) {
+export default function ProgressionGraph({ data }) {
+  if (!data) {
     return (
-      <div style={{
-        width: '100%', height: '100%',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: 'var(--text-muted)', fontSize: '12px', fontFamily: 'var(--font-data)',
-        letterSpacing: '0.08em',
-      }}>
-        RUN SIMULATION TO SEE PROGRESSION
+      <div style={{ ...card, color: 'var(--text-muted)', fontSize: '13px' }}>
+        Run <b>Project progression</b> to estimate how the visual field (Mean Deviation)
+        may change over time, treated vs untreated.
       </div>
     )
   }
 
-  const currentT = currentTimestep ?? 0
+  const rows = data.months.map((m, i) => ({
+    month: m,
+    treated: data.md_treated[i],
+    untreated: data.md_untreated[i],
+    band: [data.md_lower[i], data.md_upper[i]],
+  }))
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart
-        data={chartData}
-        margin={{ top: 8, right: 16, bottom: 8, left: 0 }}
-      >
-        <defs>
-          <linearGradient id="bandGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#ff6b35" stopOpacity={0.25} />
-            <stop offset="100%" stopColor="#ff6b35" stopOpacity={0.04} />
-          </linearGradient>
-        </defs>
-
-        <CartesianGrid
-          strokeDasharray="3 3"
-          stroke="rgba(255,255,255,0.04)"
-          vertical={false}
-        />
-
-        <XAxis
-          dataKey="t"
-          tick={{ fill: 'rgba(226,232,240,0.45)', fontSize: 10, fontFamily: "'Space Mono'" }}
-          axisLine={{ stroke: 'rgba(255,255,255,0.08)' }}
-          tickLine={false}
-          label={{ value: 'TIMESTEP', position: 'insideBottomRight', fill: 'rgba(226,232,240,0.3)', fontSize: 9, fontFamily: "'Space Mono'" }}
-        />
-        <YAxis
-          tick={{ fill: 'rgba(226,232,240,0.45)', fontSize: 10, fontFamily: "'Space Mono'" }}
-          axisLine={false}
-          tickLine={false}
-          width={30}
-        />
-
-        <Tooltip content={<GlassTooltip />} />
-
-        {/* Confidence band for future */}
-        <Area
-          type="monotone"
-          dataKey="bandHigh"
-          stroke="none"
-          fill="url(#bandGradient)"
-          name="upper bound"
-          legendType="none"
-          activeDot={false}
-          connectNulls
-        />
-        <Area
-          type="monotone"
-          dataKey="bandLow"
-          stroke="none"
-          fill="var(--bg)"
-          name="lower bound"
-          legendType="none"
-          activeDot={false}
-          connectNulls
-        />
-
-        {/* Historical line */}
-        <Line
-          type="monotone"
-          dataKey="historical"
-          stroke="#00c8ff"
-          strokeWidth={2}
-          dot={{ fill: '#00c8ff', r: 4, strokeWidth: 0 }}
-          activeDot={{ r: 6, fill: '#00c8ff', strokeWidth: 0 }}
-          name="historical"
-          connectNulls
-          isAnimationActive
-          animationDuration={1000}
-          style={{ filter: 'drop-shadow(0 0 4px #00c8ff)' }}
-        />
-
-        {/* Future prediction line */}
-        <Line
-          type="monotone"
-          dataKey="future"
-          stroke="#ff6b35"
-          strokeWidth={2}
-          strokeDasharray="6 4"
-          dot={{ fill: '#ff6b35', r: 3, strokeWidth: 0 }}
-          activeDot={{ r: 5, fill: '#ff6b35', strokeWidth: 0 }}
-          name="simulated"
-          connectNulls
-          isAnimationActive
-          animationDuration={1200}
-          style={{ filter: 'drop-shadow(0 0 4px #ff6b35)' }}
-        />
-
-        {/* Current timestep reference line */}
-        <ReferenceLine
-          x={currentT}
-          stroke="#00c8ff"
-          strokeWidth={1.5}
-          strokeDasharray="none"
-          style={{ filter: 'drop-shadow(0 0 6px #00c8ff)' }}
-          label={{
-            value: 'NOW',
-            position: 'top',
-            fill: '#00c8ff',
-            fontSize: 9,
-            fontFamily: "'Space Mono'",
-          }}
-        />
-      </ComposedChart>
-    </ResponsiveContainer>
+    <div style={card}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
+        <div style={{ fontSize: '11px', letterSpacing: '0.06em', textTransform: 'uppercase',
+                      color: 'var(--text-muted)', fontWeight: 600 }}>
+          Projected Mean Deviation (dB)
+        </div>
+        <div style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--text-muted)' }}>
+          treated {data.treated_slope_db_yr}/yr · untreated {data.untreated_slope_db_yr}/yr
+        </div>
+      </div>
+      <div style={{ width: '100%', height: 230 }}>
+        <ResponsiveContainer>
+          <ComposedChart data={rows} margin={{ top: 6, right: 12, bottom: 4, left: -8 }}>
+            <CartesianGrid stroke="#eef1f5" />
+            <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6b7280' }}
+                   label={{ value: 'months', position: 'insideBottomRight', offset: -2, fontSize: 11, fill: '#9ca3af' }} />
+            <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} domain={['dataMin - 1', 1]} />
+            <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid var(--border)' }} />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Area dataKey="band" name="80% band (treated)" stroke="none" fill="#2563eb" fillOpacity={0.12} />
+            <Line dataKey="treated" name="Treated" stroke="#2563eb" strokeWidth={2} dot={false} />
+            <Line dataKey="untreated" name="Untreated" stroke="#dc2626" strokeWidth={2}
+                  strokeDasharray="5 4" dot={false} />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px', lineHeight: 1.4 }}>
+        {data.assumptions}
+      </div>
+    </div>
   )
 }

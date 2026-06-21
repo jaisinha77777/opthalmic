@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict
@@ -13,6 +14,8 @@ from typing import Any, Dict
 import torch
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 log = logging.getLogger(__name__)
 
@@ -22,6 +25,21 @@ app_state: Dict[str, Any] = {}
 BASE_DIR = Path(__file__).resolve().parents[2]
 MODELS_DIR = BASE_DIR / "backend" / "models"
 DATA_DIR = BASE_DIR / "data"
+# Built frontend (vite output). Served by the API in production so the whole
+# app ships as a single artifact. Override with FRONTEND_DIST if needed.
+FRONTEND_DIST = Path(os.getenv("FRONTEND_DIST", str(BASE_DIR / "frontend" / "dist")))
+
+
+def _cors_origins() -> list[str]:
+    """Allowed CORS origins from env (comma-separated). Defaults to '*'.
+
+    Note: when origins is '*', credentials must be disabled — the browser
+    rejects 'Access-Control-Allow-Origin: *' together with credentials.
+    """
+    raw = os.getenv("ALLOWED_ORIGINS", "*").strip()
+    if raw == "*" or not raw:
+        return ["*"]
+    return [o.strip() for o in raw.split(",") if o.strip()]
 
 
 def _load_feature_metadata() -> Dict[str, Any]:
@@ -46,27 +64,36 @@ def _load_feature_metadata() -> Dict[str, Any]:
 
 
 def _rebuild_preprocessor(metadata: Dict[str, Any]):
-    """Reconstruct preprocessor from saved metadata (best-effort)."""
-    import sys, os
+    """
+    Load the preprocessor fitted at training time (preferred), so the API uses the
+    exact scalers/encoders the model was trained with. Falls back to re-fitting on
+    the recorded training CSV only if the pickle is missing.
+    """
+    import sys
+    import pickle
     sys.path.insert(0, str(BASE_DIR / "backend"))
     from core.dataset import FeaturePreprocessor
     import pandas as pd
 
-    # Try to reload from CSV for fitting
-    csv_path = DATA_DIR / "full_df.csv"
+    pkl_path = DATA_DIR / "preprocessor.pkl"
+    if pkl_path.exists():
+        try:
+            with open(pkl_path, "rb") as f:
+                prep = pickle.load(f)
+            log.info("Loaded fitted preprocessor from %s", pkl_path)
+            return prep
+        except Exception as e:
+            log.warning("Preprocessor unpickle failed (%s); re-fitting.", e)
+
+    csv_path = Path(metadata.get("trained_csv", DATA_DIR / "full_df.csv"))
     if not csv_path.exists():
         return None
-
     try:
         df = pd.read_csv(csv_path, low_memory=False)
-        numerical_cols = metadata.get("numerical_cols", [])
-        categorical_cols = metadata.get("categorical_cols", [])
-        binary_cols = metadata.get("binary_cols", [])
-        # col_types drives the full column ordering — honour it exactly
         prep = FeaturePreprocessor(
-            numerical_cols=numerical_cols,
-            categorical_cols=categorical_cols,
-            binary_cols=binary_cols,
+            numerical_cols=metadata.get("numerical_cols", []),
+            categorical_cols=metadata.get("categorical_cols", []),
+            binary_cols=metadata.get("binary_cols", []),
             high_cardinality_cols=[],
         )
         prep.fit(df)
@@ -84,7 +111,7 @@ async def lifespan(app: FastAPI):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     app_state["device"] = device
-    log.info("Starting Ophthalmic Digital Twin API on device=%s", device)
+    log.info("Starting Glaucoma Clinical Support API on device=%s", device)
 
     # Load feature metadata
     metadata = _load_feature_metadata()
@@ -140,63 +167,17 @@ async def lifespan(app: FastAPI):
     else:
         app_state["explainability_engine"] = None
 
-    # Fundus image encoder (ResNet-18 backbone)
+    # Fundus image encoder (ResNet-18 backbone) + trained weights if present
     try:
         from core.fundus import FundusEncoder
-        fundus_encoder = FundusEncoder(n_classes=metadata["n_classes"]).to(device)
+        fundus_encoder = FundusEncoder(pretrained=True).to(device)
+        fundus_encoder.load_weights(MODELS_DIR / "fundus_model.pt", device)
         fundus_encoder.eval()
         app_state["fundus_encoder"] = fundus_encoder
-        log.info("FundusEncoder initialized (ResNet-18, %d classes)", metadata["n_classes"])
+        log.info("FundusEncoder initialized (calibrated=%s)", fundus_encoder.is_calibrated)
     except Exception as e:
         log.error("FundusEncoder init failed: %s", e)
         app_state["fundus_encoder"] = None
-
-    # Build MARL agents
-    n_treatments = max(metadata.get("n_classes", 4), 4)
-    try:
-        from core.agents import build_agents
-        doctor, disease, patient_agent = build_agents(
-            n_treatments=n_treatments, device=device
-        )
-        app_state["doctor_agent"] = doctor
-        app_state["disease_agent"] = disease
-        app_state["patient_agent"] = patient_agent
-        log.info("MARL agents initialized (n_treatments=%d)", n_treatments)
-    except Exception as e:
-        log.error("MARL agent init failed: %s", e)
-        app_state["doctor_agent"] = None
-        app_state["disease_agent"] = None
-        app_state["patient_agent"] = None
-
-    # Treatment names
-    app_state["treatment_names"] = [f"Treatment_{i}" for i in range(n_treatments)]
-
-    # Twin engine factory
-    if model is not None:
-        from core.twin_engine import ActionEmbedder, StateTransitionMLP
-
-        action_embedder = ActionEmbedder(n_treatments, action_dim=64).to(device)
-        state_mlp = StateTransitionMLP(d_model=256, action_dim=64).to(device)
-        app_state["action_embedder"] = action_embedder
-        app_state["state_mlp"] = state_mlp
-
-        def twin_engine_factory(patient_id: str, features: torch.Tensor, latent: torch.Tensor):
-            from core.twin_engine import DigitalTwinEngine, _REGISTRY
-            if patient_id not in _REGISTRY:
-                twin = DigitalTwinEngine(
-                    patient_id=patient_id,
-                    initial_features=features.to(device),
-                    model=model,
-                    action_embedder=action_embedder,
-                    state_mlp=state_mlp,
-                    device=device,
-                )
-                # Override initial state with already-computed latent
-                twin.S_t = latent.detach().to(device)
-                twin.state_trajectory = [twin.S_t.clone()]
-
-        app_state["twin_engine_factory"] = twin_engine_factory
-        log.info("DigitalTwinEngine factory ready")
 
     log.info("API startup complete.")
     yield
@@ -208,22 +189,49 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="Ophthalmic Digital Twin API",
-        description="AI-powered digital twin system for ophthalmic disease modeling.",
+        title="Glaucoma Clinical Support API",
+        description="Glaucoma staging, uncertainty, progression projection, and guideline decision support.",
         version="1.0.0",
         lifespan=lifespan,
     )
 
+    origins = _cors_origins()
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
+        allow_origins=origins,
+        # Credentials cannot be combined with the '*' wildcard (browser rejects it).
+        allow_credentials=origins != ["*"],
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
     from .routes import router
     app.include_router(router)
+
+    # Serve the built frontend (if present) so the app deploys as one artifact.
+    # The API router (prefix /api/v1) is matched first; everything else falls
+    # through to the SPA, with index.html as the client-side-routing fallback.
+    if FRONTEND_DIST.is_dir():
+        app.mount(
+            "/assets",
+            StaticFiles(directory=str(FRONTEND_DIST / "assets")),
+            name="assets",
+        )
+
+        @app.get("/{full_path:path}", include_in_schema=False)
+        async def spa_fallback(full_path: str):
+            candidate = (FRONTEND_DIST / full_path).resolve()
+            if (
+                full_path
+                and candidate.is_file()
+                and str(candidate).startswith(str(FRONTEND_DIST.resolve()))
+            ):
+                return FileResponse(str(candidate))
+            return FileResponse(str(FRONTEND_DIST / "index.html"))
+
+        log.info("Serving frontend from %s", FRONTEND_DIST)
+    else:
+        log.info("No frontend build at %s — API only.", FRONTEND_DIST)
 
     return app
 
